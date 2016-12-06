@@ -1,4 +1,4 @@
-module Ted.View where
+module Ted.Editor.View where
 
 import Ted.Editor.Common
 
@@ -10,3 +10,4 @@ data View = View { viewLine :: Line
                  , viewOffsetX :: Double
                  , viewOffsetY :: Double
                  }
+ deriving (Eq, Show)

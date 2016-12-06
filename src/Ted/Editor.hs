@@ -1,35 +1,66 @@
-module Ted.Editor where
+module Ted.Editor 
+( processEvent
+, EditorState (..)
+, initEditorState
+) where
 
-import Ted.Editor.Cursor
 import Ted.Editor.Common
+import Ted.Editor.Cursor
+import Ted.Editor.Event
 import Ted.Editor.View
+import Ted.Editor.Interaction
+import Ted.Editor.TextBuffer
+import Ted.Editor.TextBuffer.String
+import Debug.Trace
 
 data EditorState =
      EditorState { filePath :: Maybe String
-                 , bufferLines :: [String]
+                 , bufferLines :: StringListBuffer
                  , cursor :: Cursor
-                 , cursorMotion :: CursorMotion
                  , view :: View
+                 , interactionState :: InteractionState
                  }
+  deriving (Eq, Show)
 
-applyMotion :: CursorMotion -> Direction -> CursorMotion
-applyMotion (CursorMotion x y) d
-  | d == DirLeft  = CursorMotion (Just DirXLeft) y
-  | d == DirRight = CursorMotion (Just DirXRight) y
-  | d == DirUp    = CursorMotion x (Just DirYUp)
-  | d == DirDown  = CursorMotion x (Just DirYDown)
+initEditorState :: EditorState
+initEditorState = EditorState Nothing 
+                              (StringListBuffer [])
+                              (Cursor 1 1)
+                              (View 1 1 0 0)
+                              initInteractionState
 
-removeMotion :: CursorMotion -> Direction -> CursorMotion
-removeMotion (CursorMotion x y) d
-  | d == DirLeft  = CursorMotion Nothing y
-  | d == DirRight = CursorMotion Nothing y
-  | d == DirUp    = CursorMotion x Nothing
-  | d == DirDown  = CursorMotion x Nothing
+processEvent :: Event -> EditorState -> EditorState
+processEvent evt = 
+  case evt of TimePasses t     -> editorTimePasses t
+              -- MotionBegins dir -> id -- updateInteractionState (applyMotion dir)
+              MotionEnds dir   -> id -- updateInteractionState (removeMotion dir)
+              MotionBegins dir -> updateCursor dir
+              CharacterInput c -> insertCharacter c
+              e                -> trace ("Event not handled yet: " ++ show e) id
 
-editorEvolve :: EditorState -> Event -> EditorState
-editorEvolve es0 (EventTimePasses       t) = editorTimePasses es0 t
-editorEvolve es0 (EventCommenceMoving dir) = let cm0 = cursorMotion e0 in es0 { cursorMotion = applyMotion  cm0 dir }
-editorEvolve es0 (EventConcludeMoving dir) = let cm0 = cursorMotion e0 in es0 { cursorMotion = removeMotion cm0 dir }
+insertCharacter :: Char -> EditorState -> EditorState
+insertCharacter char es = updateCursor DirRight $ es { bufferLines = newLines }
+  where Cursor line col = cursor es
+        oldLines = bufferLines es
+        newLines = insertChar line col char oldLines
 
-editorTimePasses :: EditorState -> Float -> EditorState
-editorTimePasses es0 t = undefined
+updateInteractionState :: (InteractionState -> InteractionState) -> EditorState -> EditorState
+updateInteractionState f es0 =
+  let is0 = interactionState es0
+  in es0 { interactionState = f is0 }
+
+editorTimePasses :: Float -> EditorState -> EditorState
+editorTimePasses t es0 = es0
+
+updateCursor :: Direction -> EditorState -> EditorState
+updateCursor d es = 
+  let c0 = cursor es
+      es' = es { cursor = moveCursor d c0 }
+  in trace (show (cursor es') ++ show (view es')) (ensureVisibleCursor es')
+
+ensureVisibleCursor :: EditorState -> EditorState
+ensureVisibleCursor es = es { view = View line' col' 0 0 }
+  where Cursor line col = cursor es
+        View vLine vCol _ _ = view es
+        line' = if abs (line - vLine) > 10 then (line - 10) * signum (line - vLine) else vLine
+        col' = if abs (col - vCol) > 10 then col else vCol
