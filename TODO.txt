@@ -1,11 +1,15 @@
 Broken things
 -------------
 
+- Cabal / Stack / proper build setup.
+- Smooth scrolling.
+- Limit the number of characters drawn across a line.
 - Make the view size match the window size (with a 'resize' event.)
 - Break apart the event loop so it doesn't poll and so the sleep time is dynamic.
   Eg: small sleep when we need to do something fast and smooth, long sleep when the editor is doing nothing.
 - Better solution for passing information through the event loop.
 - Align the shape of the cursor with the actual bounding box of the characters.
+- Don't hardcode the font-path.
 x Fix font rendering so it's not blurry.
 x Do we even need events? Can the event queue just be a queue of (State -> State) functions?
 
