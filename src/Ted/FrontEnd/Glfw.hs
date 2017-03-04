@@ -16,7 +16,6 @@ import System.Environment
 import Ted.Editor
 import Ted.Editor.Common
 import Ted.Editor.Cursor
-import qualified Ted.Editor.Event as Ev
 import Ted.Editor.TextBuffer.String
 import Ted.Editor.View
 import Ted.Util
@@ -52,40 +51,33 @@ startGlfwFrontEnd = do
 errorCallback :: G.ErrorCallback
 errorCallback err = print
 
-keyToEvent :: G.Key -> G.KeyState -> Maybe Ev.Event
-keyToEvent key action
-  | action `elem` [G.KeyState'Pressed, G.KeyState'Repeating] &&
-      key == G.Key'Left = Just $ Ev.MotionBegins DirLeft
-  | action `elem` [G.KeyState'Pressed, G.KeyState'Repeating] &&
-      key == G.Key'Right = Just $ Ev.MotionBegins DirRight
-  | action `elem` [G.KeyState'Pressed, G.KeyState'Repeating] && key == G.Key'Up =
-    Just $ Ev.MotionBegins DirUp
-  | action `elem` [G.KeyState'Pressed, G.KeyState'Repeating] &&
-      key == G.Key'Down = Just $ Ev.MotionBegins DirDown
-  | action == G.KeyState'Released && key == G.Key'Left =
-    Just $ Ev.MotionEnds DirLeft
-  | action == G.KeyState'Released && key == G.Key'Right =
-    Just $ Ev.MotionEnds DirRight
-  | action == G.KeyState'Released && key == G.Key'Up =
-    Just $ Ev.MotionEnds DirUp
-  | action == G.KeyState'Released && key == G.Key'Down =
-    Just $ Ev.MotionEnds DirDown
-  | otherwise =
-    traceShow ("Not handled yet: " ++ show key ++ " " ++ show action) Nothing
+-- | Map key inputs to editor state transformations.
+keyToDelta :: G.Key -> G.KeyState -> StateDelta
+keyToDelta key a
+  | a `elem` [G.KeyState'Pressed, G.KeyState'Repeating] && key == G.Key'Left =
+    motionBegins DirLeft
+  | a `elem` [G.KeyState'Pressed, G.KeyState'Repeating] && key == G.Key'Right =
+    motionBegins DirRight
+  | a `elem` [G.KeyState'Pressed, G.KeyState'Repeating] && key == G.Key'Up =
+    motionBegins DirUp
+  | a `elem` [G.KeyState'Pressed, G.KeyState'Repeating] && key == G.Key'Down =
+    motionBegins DirDown
+  | a == G.KeyState'Released && key == G.Key'Left = motionEnds DirLeft
+  | a == G.KeyState'Released && key == G.Key'Right = motionEnds DirRight
+  | a == G.KeyState'Released && key == G.Key'Up = motionEnds DirUp
+  | a == G.KeyState'Released && key == G.Key'Down = motionEnds DirDown
+  | otherwise = traceShow ("Not handled yet: " ++ show key ++ " " ++ show a) id
 
-keyCallback :: TQueue Ev.Event -> G.KeyCallback
+keyCallback :: TQueue StateDelta -> G.KeyCallback
 keyCallback queue window key scancode action mods = do
   when
     (key == G.Key'Escape && action == G.KeyState'Pressed)
     (G.setWindowShouldClose window True)
-  let me = keyToEvent key action
-  case me of
-    Nothing -> return ()
-    Just e -> atomically (writeTQueue queue e)
+  atomically (writeTQueue queue (keyToDelta key action))
 
-charCallback :: TQueue Ev.Event -> G.CharCallback
+charCallback :: TQueue StateDelta -> G.CharCallback
 charCallback queue window char =
-  atomically $ writeTQueue queue (Ev.CharacterInput char)
+  atomically $ writeTQueue queue (characterInput char)
 
 drawingSetup :: (Int, Int) -> Float -> G.Window -> IO ()
 drawingSetup (width, height) fontWidth win = do
@@ -104,20 +96,18 @@ drawingSetup (width, height) fontWidth win = do
   -- scale 0.95 0.95 (1 :: GLfloat)
 
 mainLoop
-  :: TQueue Ev.Event
+  :: TQueue StateDelta
   -> FTGL.Font
   -> Float
   -> G.Window
   -> EditorState
   -> IO (EditorState)
 mainLoop queue font fontWidth win es = do
-  es' <- atomically $ processEvents queue es
-  -- when (es /= es') (print es')
+  es' <- atomically $ processDeltas queue es
   (width, height) <- G.getFramebufferSize win
   drawingSetup (width, height) fontWidth win
   let vl = viewLine $ view es'
       vc = viewColumn $ view es'
-  -- translate $ v3 (fi (-vc + 1)) (fi (-vl + 1)) 0
   -- Draw an origin.
   lineWidth $= 0.1
   color $ Color3 1.0 0.0 (0.0 :: GLfloat)
@@ -143,17 +133,18 @@ mainLoop queue font fontWidth win es = do
   G.swapBuffers win
   G.pollEvents
   threadDelay 30000
-  atomically $ writeTQueue queue (Ev.TimePasses 0.03)
+  atomically $ writeTQueue queue (timePasses 0.03)
   return es'
 
-processEvents :: TQueue Ev.Event -> EditorState -> STM EditorState
-processEvents queue state = do
+-- | Read state changes off the queue, applying them in turn, until there are none left.
+processDeltas :: TQueue StateDelta -> EditorState -> STM EditorState
+processDeltas queue state = do
   me <- tryReadTQueue queue
   case me of
     Nothing -> return state
     Just e ->
-      let state' = processEvent e state
-      in processEvents queue state'
+      let state' = e state
+      in processDeltas queue state'
 
 v3 :: GLdouble -> GLdouble -> GLdouble -> Vector3 GLdouble
 v3 = Vector3
