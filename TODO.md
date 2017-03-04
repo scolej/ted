@@ -1,0 +1,38 @@
+Broken things
+-------------
+
+x Fix font rendering so it's not blurry.
+- Make the view size match the window size (with a 'resize' event.)
+- Break apart the event loop so it doesn't poll and so the sleep time is dynamic.
+  Eg: small sleep when we need to do something fast and smooth, long sleep when the editor is doing nothing.
+- Better solution for passing information through the event loop.
+- Align the shape of the cursor with the actual bounding box of the characters.
+
+!! Do we even need events? Can the event queue just be a queue of (State -> State) functions?
+
+Basic editor functionality
+--------------------------
+
+- Allow inserting new lines
+- Allow backspace
+- Allow saving (auto-saving?)
+- Undo.
+- Copy/paste and copy ring / cycle.
+
+Desirable editor functionality
+------------------------------
+
+- Fix cursor motion so it uses 'begin/end' events and we can control the repeat speed more precisely/smoothly.
+  Eg: can implement 'smooth speedy move' modifier key.
+- Markers from file:line locations in other open files.
+- Easily jump to file:line locations.
+
+For the near and distant future
+-------------------------------
+
+- Implement a TextBuffer which is wiser than a string.
+
+Fancy things completely unrelated to text editing
+-------------------------------------------------
+
+- Time of day colour scheme.

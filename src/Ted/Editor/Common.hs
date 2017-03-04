@@ -1,6 +1,10 @@
 module Ted.Editor.Common where
 
-data Direction = DirUp | DirDown | DirLeft | DirRight
+data Direction
+  = DirUp
+  | DirDown
+  | DirLeft
+  | DirRight
   deriving (Eq, Show)
 
 type Line = Int
