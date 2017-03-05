@@ -16,7 +16,6 @@ data EditorState = EditorState
   , bufferLines :: StringListBuffer
   , cursor :: Cursor
   , view :: View
-  -- , interactionState :: InteractionState
   } deriving (Eq, Show)
 
 initEditorState :: EditorState
@@ -26,7 +25,6 @@ initEditorState =
   , bufferLines = (StringListBuffer [])
   , cursor = (Cursor 1 1)
   , view = (View 1 1 10 80)
-    -- initInteractionState
   }
 
 motionBegins :: Direction -> StateDelta
@@ -38,30 +36,24 @@ motionEnds d = id
 characterInput :: Char -> StateDelta
 characterInput c = insertCharacter c
 
-insertCharacter :: Char -> EditorState -> EditorState
+insertCharacter :: Char -> StateDelta
 insertCharacter char es = updateCursor DirRight $ es {bufferLines = newLines}
   where
     Cursor line col = cursor es
     oldLines = bufferLines es
     newLines = insertChar line col char oldLines
 
--- updateInteractionState :: (InteractionState -> InteractionState)
---                        -> EditorState
---                        -> EditorState
--- updateInteractionState f es0 =
---   let is0 = interactionState es0
---   in es0 {interactionState = f is0}
 timePasses :: Float -> StateDelta
 timePasses t = id
 
-updateCursor :: Direction -> EditorState -> EditorState
+updateCursor :: Direction -> StateDelta
 updateCursor d es =
   let c0 = cursor es
       es' = es {cursor = moveCursor d c0}
   in trace (show (cursor es') ++ show (view es')) (ensureVisibleCursor es')
 
 -- | Move the view to make sure the cursor can be seen.
-ensureVisibleCursor :: EditorState -> EditorState
+ensureVisibleCursor :: StateDelta
 ensureVisibleCursor es = es {view = View l' c' h w}
   where
     v = view es
@@ -70,11 +62,17 @@ ensureVisibleCursor es = es {view = View l' c' h w}
     c = viewColumn v
     h = viewLines v
     w = viewColumns v
+    b = l + h -- Bottom.
+    r = c + w -- Right.
     l'
       | cl < l = cl
-      | cl > l + h = l + (cl - (l + h))
+      | cl > b = l + (cl - b)
       | otherwise = l
     c'
       | cc < c = cc
-      | cc > c + w = c + (cc - (c + w))
+      | cc > r = c + (cc - r)
       | otherwise = c
+
+resizeView :: Int -> Int -> StateDelta
+resizeView lines columns es =
+  es {view = (view es) {viewLines = lines, viewColumns = columns}}

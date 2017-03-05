@@ -25,6 +25,10 @@ fontPath = "/usr/share/fonts/TTF/FSEX301-L2.ttf" :: String
 
 fontPoints = 16 :: Int
 
+initWinHeight = 480
+
+initWinWidth = 640
+
 startGlfwFrontEnd :: IO ()
 startGlfwFrontEnd = do
   eventQueue <- atomically newTQueue
@@ -32,7 +36,7 @@ startGlfwFrontEnd = do
   when (length args /= 1) (fail "Give me a file!")
   testLines <- fmap lines (readFile $ head args)
   True <- G.init
-  Just win <- G.createWindow 640 480 "ted" Nothing Nothing
+  Just win <- G.createWindow initWinWidth initWinHeight "ted" Nothing Nothing
   G.makeContextCurrent (Just win)
   G.setErrorCallback (Just errorCallback)
   G.setKeyCallback win (Just $ keyCallback eventQueue)
@@ -40,10 +44,20 @@ startGlfwFrontEnd = do
   font <- FTGL.createTextureFont fontPath
   FTGL.setFontFaceSize font fontPoints 72
   fontWidth <- FTGL.getFontAdvance font "M"
+  G.setWindowSizeCallback win (Just $ sizeCallback eventQueue fontWidth)
   let loopf = mainLoop eventQueue font fontWidth win
       loop state =
         G.windowShouldClose win >>= \b -> unless b $ loopf state >>= loop
-  loop $ initEditorState {bufferLines = StringListBuffer testLines}
+  loop $
+    initEditorState
+    { bufferLines = StringListBuffer testLines
+    , view =
+        View
+          1
+          1
+          (floor $ fi initWinHeight / fi fontPoints)
+          (floor $ fi initWinWidth / fontWidth)
+    }
   G.destroyWindow win
   G.terminate
   return ()
@@ -78,6 +92,13 @@ keyCallback queue window key scancode action mods = do
 charCallback :: TQueue StateDelta -> G.CharCallback
 charCallback queue window char =
   atomically $ writeTQueue queue (characterInput char)
+
+sizeCallback :: TQueue StateDelta -> Float -> G.WindowSizeCallback
+sizeCallback queue fontWidth window width height =
+  let lines = floor $ fi height / fi fontPoints
+      cols = floor $ fi width / fontWidth
+  in atomically $
+     writeTQueue queue (ensureVisibleCursor . resizeView lines cols)
 
 drawingSetup :: (Int, Int) -> Float -> G.Window -> IO ()
 drawingSetup (width, height) fontWidth win = do
