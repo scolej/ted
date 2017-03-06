@@ -33,6 +33,13 @@ motionBegins d = updateCursor d
 motionEnds :: Direction -> StateDelta
 motionEnds d = id
 
+backspace :: StateDelta
+backspace es = (updateCursor DirLeft) $ es {bufferLines = buffer'}
+  where
+    Cursor l c = cursor es
+    buffer = bufferLines es
+    buffer' = deleteChar l c buffer
+
 characterInput :: Char -> StateDelta
 characterInput c = insertCharacter c
 

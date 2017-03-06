@@ -8,4 +8,4 @@ class TextBuffer t
   -- deleteLine :: Line -> t -> t
                                   where
   insertChar :: Line -> Column -> Char -> t -> t
-  -- deleteChar :: Line -> Column -> t -> t
+  deleteChar :: Line -> Column -> t -> t

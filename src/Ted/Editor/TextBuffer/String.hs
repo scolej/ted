@@ -17,3 +17,10 @@ instance TextBuffer StringListBuffer where
       modified = skipsCharStart ++ [char] ++ skipsCharEnd
       skipsCharStart = take (col - 1) l'
       skipsCharEnd = drop (col - 1) l'
+  deleteChar line col (StringListBuffer oldLines) =
+    StringListBuffer $ skipsStart ++ [modified] ++ skipsEnd
+    where
+      skipsStart = take (line - 1) oldLines
+      skipsEnd = drop (line) oldLines
+      l = oldLines !! (line - 1)
+      modified = take (col - 2) l ++ drop (col - 1) l

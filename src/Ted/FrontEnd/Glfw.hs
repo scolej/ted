@@ -20,14 +20,17 @@ import Ted.Editor.TextBuffer.String
 import Ted.Editor.View
 import Ted.Util
 
--- fontPath = "/usr/share/fonts/TTF/UbuntuMono-Bold.ttf" :: String
-fontPath = "/usr/share/fonts/TTF/FSEX301-L2.ttf" :: String
+fontPath = "/usr/share/fonts/TTF/UbuntuMono-Bold.ttf" :: String
 
-fontPoints = 16 :: Int
+type Pixels = Int
 
-initWinHeight = 480
+cursorWidth = 2 :: Pixels
 
-initWinWidth = 640
+fontHeight = 16 :: Pixels
+
+initWinHeight = 480 :: Pixels
+
+initWinWidth = 640 :: Pixels
 
 startGlfwFrontEnd :: IO ()
 startGlfwFrontEnd = do
@@ -42,7 +45,7 @@ startGlfwFrontEnd = do
   G.setKeyCallback win (Just $ keyCallback eventQueue)
   G.setCharCallback win (Just $ charCallback eventQueue)
   font <- FTGL.createTextureFont fontPath
-  FTGL.setFontFaceSize font fontPoints 72
+  FTGL.setFontFaceSize font fontHeight 72
   fontWidth <- FTGL.getFontAdvance font "M"
   G.setWindowSizeCallback win (Just $ sizeCallback eventQueue fontWidth)
   let loopf = mainLoop eventQueue font fontWidth win
@@ -55,7 +58,7 @@ startGlfwFrontEnd = do
         View
           1
           1
-          (floor $ fi initWinHeight / fi fontPoints)
+          (floor $ fi initWinHeight / fi fontHeight)
           (floor $ fi initWinWidth / fontWidth)
     }
   G.destroyWindow win
@@ -76,6 +79,8 @@ keyToDelta key a
     motionBegins DirUp
   | a `elem` [G.KeyState'Pressed, G.KeyState'Repeating] && key == G.Key'Down =
     motionBegins DirDown
+  | a `elem` [G.KeyState'Pressed, G.KeyState'Repeating] &&
+      key == G.Key'Backspace = backspace
   | a == G.KeyState'Released && key == G.Key'Left = motionEnds DirLeft
   | a == G.KeyState'Released && key == G.Key'Right = motionEnds DirRight
   | a == G.KeyState'Released && key == G.Key'Up = motionEnds DirUp
@@ -95,7 +100,7 @@ charCallback queue window char =
 
 sizeCallback :: TQueue StateDelta -> Float -> G.WindowSizeCallback
 sizeCallback queue fontWidth window width height =
-  let lines = floor $ fi height / fi fontPoints
+  let lines = floor $ fi height / fi fontHeight
       cols = floor $ fi width / fontWidth
   in atomically $
      writeTQueue queue (ensureVisibleCursor . resizeView lines cols)
@@ -103,7 +108,7 @@ sizeCallback queue fontWidth window width height =
 drawingSetup :: (Int, Int) -> Float -> G.Window -> IO ()
 drawingSetup (width, height) fontWidth win = do
   let ratio = fromIntegral width / fromIntegral height
-      charsHeight = fi height / fi fontPoints
+      charsHeight = fi height / fi fontHeight
   viewport $= (Position 0 0, Size (fromIntegral width) (fromIntegral height))
   clearColor $= (Color4 1 1 1 1 :: Color4 GLfloat)
   clear [ColorBuffer]
@@ -112,8 +117,8 @@ drawingSetup (width, height) fontWidth win = do
   ortho 0 (ratio * charsHeight) charsHeight 0 1 (-1)
   matrixMode $= Modelview 0
   loadIdentity
-  scale (fontWidth / fi fontPoints) 1 (1 :: GLfloat)
-  translate $ v3 0 1 0
+  scale (fontWidth / fi fontHeight) 1 (1 :: GLfloat)
+  translate $ v3 1 1 0
   -- scale 0.95 0.95 (1 :: GLfloat)
 
 mainLoop
@@ -129,16 +134,8 @@ mainLoop queue font fontWidth win es = do
   drawingSetup (width, height) fontWidth win
   let vl = viewLine $ view es'
       vc = viewColumn $ view es'
-  -- Draw an origin.
-  lineWidth $= 0.1
-  color $ Color3 1.0 0.0 (0.0 :: GLfloat)
-  renderPrimitive Lines $ do
-    vertex $ Vertex3 0 0 (0 :: GLfloat)
-    vertex $ Vertex3 0 1 (0 :: GLfloat)
-    vertex $ Vertex3 0 0 (0 :: GLfloat)
-    vertex $ Vertex3 1 0 (0 :: GLfloat)
   -- Draw cursor.
-  lineWidth $= 2
+  lineWidth $= fi cursorWidth
   color $ Color3 1 0 (0 :: GLfloat)
   preservingMatrix $ do
     let Cursor l c = cursor es'
@@ -149,8 +146,8 @@ mainLoop queue font fontWidth win es = do
   -- Draw text.
   color $ Color3 0 0 (0 :: GLfloat)
   let StringListBuffer ls = bufferLines es'
-      nlines = floor (fi height / fi fontPoints :: Float)
-  simpleDrawLines nlines (fi fontPoints / fontWidth) font ls (view es')
+      nlines = floor (fi height / fi fontHeight :: Float)
+  simpleDrawLines nlines (fi fontHeight / fontWidth) font ls (view es')
   G.swapBuffers win
   G.pollEvents
   threadDelay 30000
@@ -172,7 +169,7 @@ v3 = Vector3
 
 simpleDrawLines :: Int -> Float -> FTGL.Font -> [String] -> View -> IO ()
 simpleDrawLines nlines xrat font ls v =
-  let s = 1 / fi fontPoints :: GLfloat
+  let s = 1 / fi fontHeight :: GLfloat
       drawLine l = do
         preservingMatrix $ do
           scale (s * xrat) (-s) 1
