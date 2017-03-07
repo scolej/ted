@@ -34,7 +34,11 @@ motionEnds :: Direction -> StateDelta
 motionEnds d = id
 
 backspace :: StateDelta
-backspace es = (updateCursor DirLeft) $ es {bufferLines = buffer'}
+backspace es =
+  (if c == 1
+     then updateCursor DirUp
+     else updateCursor DirLeft) $
+  es {bufferLines = buffer'}
   where
     Cursor l c = cursor es
     buffer = bufferLines es

@@ -1,6 +1,7 @@
 Broken things
 -------------
 
+- Crash on insert text beyond end of file.
 - Cabal / Stack / proper build setup.
 - Smooth scrolling.
 - Limit the number of characters drawn across a line.
@@ -22,6 +23,7 @@ Basic editor functionality
 - Allow saving (auto-saving?)
 - Undo.
 - Copy/paste and copy ring / cycle.
+- Better move keys: home, end...
 
 Desirable editor functionality
 ------------------------------
