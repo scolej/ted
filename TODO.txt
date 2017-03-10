@@ -1,9 +1,11 @@
 Broken things
 -------------
 
-- Crash on insert text beyond end of file.
-- Cabal / Stack / proper build setup.
-- Smooth scrolling.
+- Get rid of all the irrefutable Cursor matches.
+  This is going to break a lot when we bring in the different cursor types.
+- Remove references to StringBufferList in the editor.
+  The editor should only make reference to the TextBuffer class.
+- Disallow cursor moving beyond end of file? Pad lines to allow insert at new position?
 - Limit the number of characters drawn across a line.
 - Break apart the event loop so it doesn't poll and so the sleep time is dynamic.
   Eg: small sleep when we need to do something fast and smooth, long sleep when the editor is doing nothing.
@@ -14,16 +16,26 @@ Broken things
 x Make the view size match the window size (with a 'resize' event.)
 x Fix font rendering so it's not blurry.
 x Do we even need events? Can the event queue just be a queue of (State -> State) functions?
+x Crash on insert text beyond end of file.
+
+Proper things
+=============
+
+- Cabal / Stack / proper build setup.
+- Test for TextBuffer which can be instantiated per instance.
 
 Basic editor functionality
 --------------------------
 
 - Allow inserting new lines
-- Allow backspace
+- Allow delete.
 - Allow saving (auto-saving?)
 - Undo.
+  Make every text buffer op return the edit and the inverse edit? Then store a history of inverse edits?
+  Break down the text buffer class? Use just insert-char delete-char at a buffer index, not line/num.
 - Copy/paste and copy ring / cycle.
-- Better move keys: home, end...
+x Better move keys: home, end
+x Allow backspace
 
 Desirable editor functionality
 ------------------------------
@@ -32,11 +44,13 @@ Desirable editor functionality
   Eg: can implement 'smooth speedy move' modifier key.
 - Markers from file:line locations in other open files.
 - Easily jump to file:line locations.
+- Smooth scrolling. Or at least, sub-characters-size scrolling.
+- Simple search and highlight.
 
 For the near and distant future
 -------------------------------
 
-- Implement a TextBuffer which is wiser than a string.
+- Implement a TextBuffer which is wiser than a string list.
 
 Fancy things completely unrelated to text editing
 -------------------------------------------------

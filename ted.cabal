@@ -1,0 +1,15 @@
+name:                ted
+version:             0.0.0
+build-type:          Simple
+cabal-version:       >=1.10
+
+executable ted
+  hs-source-dirs:      src
+  main-is:             Main1.hs
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  build-depends:       base
+                     , stm
+                     , GLFW-b
+                     , OpenGL
+                     , FTGL
+  default-language:    Haskell2010

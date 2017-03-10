@@ -69,8 +69,8 @@ errorCallback :: G.ErrorCallback
 errorCallback err = print
 
 -- | Map key inputs to editor state transformations.
-keyToDelta :: G.Key -> G.KeyState -> StateDelta
-keyToDelta key a
+keyToDelta :: G.Key -> G.KeyState -> G.ModifierKeys -> StateDelta
+keyToDelta key a mods
   | a `elem` [G.KeyState'Pressed, G.KeyState'Repeating] && key == G.Key'Left =
     motionBegins DirLeft
   | a `elem` [G.KeyState'Pressed, G.KeyState'Repeating] && key == G.Key'Right =
@@ -85,6 +85,9 @@ keyToDelta key a
   | a == G.KeyState'Released && key == G.Key'Right = motionEnds DirRight
   | a == G.KeyState'Released && key == G.Key'Up = motionEnds DirUp
   | a == G.KeyState'Released && key == G.Key'Down = motionEnds DirDown
+  | a == G.KeyState'Pressed && key == G.Key'D && G.modifierKeysControl mods = deleteWholeLine
+  | a == G.KeyState'Pressed && key == G.Key'End = gotoEndOfLine
+  | a == G.KeyState'Pressed && key == G.Key'Home = gotoStartOfLine
   | otherwise = traceShow ("Not handled yet: " ++ show key ++ " " ++ show a) id
 
 keyCallback :: TQueue StateDelta -> G.KeyCallback
@@ -92,7 +95,7 @@ keyCallback queue window key scancode action mods = do
   when
     (key == G.Key'Escape && action == G.KeyState'Pressed)
     (G.setWindowShouldClose window True)
-  atomically (writeTQueue queue (keyToDelta key action))
+  atomically (writeTQueue queue (keyToDelta key action mods))
 
 charCallback :: TQueue StateDelta -> G.CharCallback
 charCallback queue window char =

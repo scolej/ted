@@ -2,8 +2,6 @@ module Ted.Editor.TextBuffer.String where
 
 import Ted.Editor.TextBuffer
 
-(<&>) = flip fmap
-
 newtype StringListBuffer =
   StringListBuffer [String]
   deriving (Eq, Show)
@@ -23,15 +21,23 @@ instance TextBuffer StringListBuffer where
               modified = skipsCharStart ++ [char] ++ skipsCharEnd
               skipsCharStart = take (col - 1) l'
               skipsCharEnd = drop (col - 1) l'
-  deleteChar line 1 old@(StringListBuffer oldLines) =
-    case (perforate (line - 2) oldLines) >>=
-         (\(as, a, _) ->
-            (perforate (line - 1) oldLines) <&> \(_, b, bs) -> (as, a, b, bs)) of
-      Nothing -> old
-      Just (as, a, b, bs) -> StringListBuffer $ as ++ [a ++ b] ++ bs
   deleteChar line col old@(StringListBuffer oldLines) =
-    case perforate (line - 1) oldLines of
-      Nothing -> old
-      Just (skipsStart, l, skipsEnd) ->
-        StringListBuffer $ skipsStart ++ [modified] ++ skipsEnd
-        where modified = take (col - 2) l ++ drop (col - 1) l
+    case newLines of Nothing -> old
+                     Just ls -> StringListBuffer ls
+    where newLines = do
+            (lsA, l, lsB) <- perforate (line - 1) oldLines
+            (csA, _, csB) <- perforate (col - 1) l
+            return $ lsA ++ [csA ++ csB] ++ lsB
+  deleteLine line old@(StringListBuffer oldLines) =
+    case newLines of Nothing -> old
+                     Just ls -> StringListBuffer ls
+    where newLines = do
+             (lsA, l, lsB) <- perforate (line - 1) oldLines
+             return $ lsA ++ lsB
+  collapseLine line old@(StringListBuffer oldLines) =
+    case newLines of Nothing -> old
+                     Just ls -> StringListBuffer ls
+    where newLines = do
+            (lsA, a, _) <- perforate (line - 2) oldLines
+            (_, b, lsB) <- perforate (line - 1) oldLines
+            return $ lsA ++ [a ++ b] ++ lsB

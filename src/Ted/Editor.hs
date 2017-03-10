@@ -35,14 +35,18 @@ motionEnds d = id
 
 backspace :: StateDelta
 backspace es =
-  (if c == 1
-     then updateCursor DirUp
-     else updateCursor DirLeft) $
-  es {bufferLines = buffer'}
-  where
-    Cursor l c = cursor es
-    buffer = bufferLines es
-    buffer' = deleteChar l c buffer
+  let Cursor l c = cursor es
+      buffer = bufferLines es
+  in if c == 1
+     then let buffer' = collapseLine l buffer
+          in (gotoEndOfLine $ updateCursor DirUp es) {bufferLines = buffer'}
+     else let buffer' = deleteChar l (c - 1) buffer
+          in updateCursor DirLeft $ es {bufferLines = buffer'}
+
+deleteWholeLine :: StateDelta
+deleteWholeLine es = es { bufferLines = buffer' }
+  where buffer' = deleteLine l (bufferLines es)
+        Cursor l _ = cursor es
 
 characterInput :: Char -> StateDelta
 characterInput c = insertCharacter c
@@ -57,11 +61,21 @@ insertCharacter char es = updateCursor DirRight $ es {bufferLines = newLines}
 timePasses :: Float -> StateDelta
 timePasses t = id
 
+gotoEndOfLine :: StateDelta
+gotoEndOfLine es = es { cursor = Cursor l c' }
+  where Cursor l c = cursor es
+        StringListBuffer lines = bufferLines es
+        c' = 1 + (length $ lines !! (l - 1)) -- FIXME
+
+gotoStartOfLine :: StateDelta
+gotoStartOfLine es = es { cursor = Cursor l 1 }
+  where Cursor l c = cursor es
+
 updateCursor :: Direction -> StateDelta
 updateCursor d es =
   let c0 = cursor es
       es' = es {cursor = moveCursor d c0}
-  in trace (show (cursor es') ++ show (view es')) (ensureVisibleCursor es')
+  in ensureVisibleCursor es'
 
 -- | Move the view to make sure the cursor can be seen.
 ensureVisibleCursor :: StateDelta
