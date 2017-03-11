@@ -19,6 +19,9 @@ import Ted.Editor.Cursor
 import Ted.Editor.TextBuffer.String
 import Ted.Editor.View
 import Ted.Util
+import qualified Ted.Fancy.Colours as FC
+import Data.Colour.RGBSpace
+import Data.Time.LocalTime
 
 fontPath = "/usr/share/fonts/TTF/UbuntuMono-Bold.ttf" :: String
 
@@ -108,12 +111,12 @@ sizeCallback queue fontWidth window width height =
   in atomically $
      writeTQueue queue (ensureVisibleCursor . resizeView lines cols)
 
-drawingSetup :: (Int, Int) -> Float -> G.Window -> IO ()
-drawingSetup (width, height) fontWidth win = do
+drawingSetup :: (Int, Int) -> Float -> G.Window -> RGB GLfloat -> IO ()
+drawingSetup (width, height) fontWidth win colourBg = do
   let ratio = fromIntegral width / fromIntegral height
       charsHeight = fi height / fi fontHeight
   viewport $= (Position 0 0, Size (fromIntegral width) (fromIntegral height))
-  clearColor $= (Color4 1 1 1 1 :: Color4 GLfloat)
+  clearColor $= (Color4 (channelRed colourBg) (channelGreen colourBg) (channelBlue colourBg) 1 :: Color4 GLfloat)
   clear [ColorBuffer]
   matrixMode $= Projection
   loadIdentity
@@ -132,9 +135,12 @@ mainLoop
   -> EditorState
   -> IO (EditorState)
 mainLoop queue font fontWidth win es = do
+  tod <- (fromRational . timeOfDayToDayFraction . localTimeOfDay . zonedTimeToLocalTime) <$> getZonedTime
+  let colourFg = FC.slidingFg tod
+  let colourBg = FC.slidingBg tod
   es' <- atomically $ processDeltas queue es
   (width, height) <- G.getFramebufferSize win
-  drawingSetup (width, height) fontWidth win
+  drawingSetup (width, height) fontWidth win colourBg
   let vl = viewLine $ view es'
       vc = viewColumn $ view es'
   -- Draw cursor.
@@ -147,7 +153,7 @@ mainLoop queue font fontWidth win es = do
       vertex $ Vertex3 0 0 (0 :: GLfloat)
       vertex $ Vertex3 0 (-1) (0 :: GLfloat)
   -- Draw text.
-  color $ Color3 0 0 (0 :: GLfloat)
+  color $ Color3 (channelRed colourFg) (channelGreen colourFg) (channelBlue colourFg)      
   let StringListBuffer ls = bufferLines es'
       nlines = floor (fi height / fi fontHeight :: Float)
   simpleDrawLines nlines (fi fontHeight / fontWidth) font ls (view es')

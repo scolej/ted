@@ -12,4 +12,6 @@ executable ted
                      , GLFW-b
                      , OpenGL
                      , FTGL
+                     , colour
+                     , time
   default-language:    Haskell2010
