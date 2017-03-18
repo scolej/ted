@@ -41,3 +41,11 @@ instance TextBuffer StringListBuffer where
             (lsA, a, _) <- perforate (line - 2) oldLines
             (_, b, lsB) <- perforate (line - 1) oldLines
             return $ lsA ++ [a ++ b] ++ lsB
+  splitLine line col old@(StringListBuffer oldLines) = 
+    case newLines of Nothing -> old
+                     Just ls -> StringListBuffer ls
+    where newLines = do
+            (lsA, l, lsB) <- perforate (line - 1) oldLines
+            let a = take (col - 1) l
+                b = drop (col - 1) l
+            return $ lsA ++ [a, b] ++ lsB  

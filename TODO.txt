@@ -57,3 +57,4 @@ Fancy things completely unrelated to text editing
 
 - Time of day colour scheme.
     - HSV?
+- Super faint background grid?

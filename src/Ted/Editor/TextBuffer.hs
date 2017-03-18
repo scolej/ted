@@ -13,3 +13,5 @@ class TextBuffer t where
   deleteLine :: Line -> t -> t
   -- | Join a line to the previous line.
   collapseLine :: Line -> t -> t
+  -- | Split a line into two lines.
+  splitLine :: Line -> Column -> t -> t

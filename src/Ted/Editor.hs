@@ -58,6 +58,11 @@ insertCharacter char es = updateCursor DirRight $ es {bufferLines = newLines}
     oldLines = bufferLines es
     newLines = insertChar line col char oldLines
 
+splitLineAtCursor :: StateDelta
+splitLineAtCursor es = gotoStartOfLine $ updateCursor DirDown $ es {bufferLines = newLines}
+  where newLines = splitLine l c (bufferLines es)
+        Cursor l c = cursor es
+
 timePasses :: Float -> StateDelta
 timePasses t = id
 

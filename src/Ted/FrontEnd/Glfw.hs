@@ -91,6 +91,7 @@ keyToDelta key a mods
   | a == G.KeyState'Pressed && key == G.Key'D && G.modifierKeysControl mods = deleteWholeLine
   | a == G.KeyState'Pressed && key == G.Key'End = gotoEndOfLine
   | a == G.KeyState'Pressed && key == G.Key'Home = gotoStartOfLine
+  | a == G.KeyState'Pressed && key == G.Key'Enter = splitLineAtCursor
   | otherwise = traceShow ("Not handled yet: " ++ show key ++ " " ++ show a) id
 
 keyCallback :: TQueue StateDelta -> G.KeyCallback
