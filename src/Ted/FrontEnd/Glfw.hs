@@ -22,6 +22,7 @@ import Ted.Util
 import qualified Ted.Fancy.Colours as FC
 import Data.Colour.RGBSpace
 import Data.Time.LocalTime
+import Data.Time.Clock
 
 fontPath = "/usr/share/fonts/TTF/UbuntuMono-Bold.ttf" :: String
 
@@ -35,8 +36,19 @@ initWinHeight = 480 :: Pixels
 
 initWinWidth = 640 :: Pixels
 
+data UIState = UIState
+  { uiEventQueue :: TQueue StateDelta
+  , uiWindow :: G.Window
+  , uiFont :: FTGL.Font
+  , uiFontWidth :: Float
+  , uiLastWrite :: UTCTime
+  , uiLastEdit :: UTCTime
+  , uiEditor :: EditorState
+  }
+
 startGlfwFrontEnd :: IO ()
 startGlfwFrontEnd = do
+  now <- getCurrentTime
   eventQueue <- atomically newTQueue
   args <- getArgs
   when (length args /= 1) (fail "Give me a file!")
@@ -51,19 +63,24 @@ startGlfwFrontEnd = do
   FTGL.setFontFaceSize font fontHeight 72
   fontWidth <- FTGL.getFontAdvance font "M"
   G.setWindowSizeCallback win (Just $ sizeCallback eventQueue fontWidth)
-  let loopf = mainLoop eventQueue font fontWidth win
-      loop state =
-        G.windowShouldClose win >>= \b -> unless b $ loopf state >>= loop
-  loop $
-    initEditorState
-    { bufferLines = StringListBuffer testLines
-    , view =
-        View
-          1
-          1
-          (floor $ fi initWinHeight / fi fontHeight)
-          (floor $ fi initWinWidth / fontWidth)
-    }
+  let loop state =
+        G.windowShouldClose win >>= \b -> unless b $ (mainLoop state) >>= loop
+  loop $ UIState { uiEventQueue = eventQueue
+                 , uiFont = font
+                 , uiFontWidth = fontWidth
+                 , uiWindow = win
+                 , uiLastEdit = now
+                 , uiLastWrite = now
+                 , uiEditor = initEditorState
+                                 { bufferLines = StringListBuffer testLines
+                                 , view =
+                                     View
+                                       1
+                                       1
+                                       (floor $ fi initWinHeight / fi fontHeight)
+                                       (floor $ fi initWinWidth / fontWidth)
+                                 }
+                 }
   G.destroyWindow win
   G.terminate
   return ()
@@ -126,22 +143,15 @@ drawingSetup (width, height) fontWidth win colourBg = do
   loadIdentity
   scale (fontWidth / fi fontHeight) 1 (1 :: GLfloat)
   translate $ v3 1 1 0
-  -- scale 0.95 0.95 (1 :: GLfloat)
 
-mainLoop
-  :: TQueue StateDelta
-  -> FTGL.Font
-  -> Float
-  -> G.Window
-  -> EditorState
-  -> IO (EditorState)
-mainLoop queue font fontWidth win es = do
+mainLoop :: UIState -> IO (UIState)
+mainLoop ui = do
   tod <- (fromRational . timeOfDayToDayFraction . localTimeOfDay . zonedTimeToLocalTime) <$> getZonedTime
   let colourFg = FC.slidingFg tod
   let colourBg = FC.slidingBg tod
-  es' <- atomically $ processDeltas queue es
-  (width, height) <- G.getFramebufferSize win
-  drawingSetup (width, height) fontWidth win colourBg
+  es' <- atomically $ processDeltas (uiEventQueue ui) (uiEditor ui)
+  (width, height) <- G.getFramebufferSize (uiWindow ui)
+  drawingSetup (width, height) (uiFontWidth ui) (uiWindow ui) colourBg
   let vl = viewLine $ view es'
       vc = viewColumn $ view es'
   -- Draw cursor.
@@ -157,12 +167,12 @@ mainLoop queue font fontWidth win es = do
   color $ Color3 (channelRed colourFg) (channelGreen colourFg) (channelBlue colourFg)      
   let StringListBuffer ls = bufferLines es'
       nlines = floor (fi height / fi fontHeight :: Float)
-  simpleDrawLines nlines (fi fontHeight / fontWidth) font ls (view es')
-  G.swapBuffers win
+  simpleDrawLines nlines (fi fontHeight / (uiFontWidth ui)) (uiFont ui) ls (view es')
+  G.swapBuffers (uiWindow ui)
   G.pollEvents
   threadDelay 30000
-  atomically $ writeTQueue queue (timePasses 0.03)
-  return es'
+  atomically $ writeTQueue (uiEventQueue ui) (timePasses 0.03)
+  return $ ui { uiEditor = es' }
 
 -- | Read state changes off the queue, applying them in turn, until there are none left.
 processDeltas :: TQueue StateDelta -> EditorState -> STM EditorState
