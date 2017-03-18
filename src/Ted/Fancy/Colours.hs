@@ -12,7 +12,7 @@ bgLightness tod = 0.5 + (-0.5) * todCos tod
 
 -- | Calculate the background lightness as a function of the time of day fraction.
 fgLightness :: Float -> Float
-fgLightness tod = 0.25 + (-0.25) * todCos tod
+fgLightness tod = 0.25 + (0.25) * todCos tod
 
 slidingHue :: Float -> Float
 slidingHue tod = 300 + 60 * todCos tod
