@@ -1,7 +1,7 @@
 module Ted.Fancy.Colours where
 
-import Data.Colour.RGBSpace.HSL
 import Data.Colour.RGBSpace
+import Data.Colour.RGBSpace.HSL
 
 todCos :: Float -> Float
 todCos tod = cos (2 * pi * tod)

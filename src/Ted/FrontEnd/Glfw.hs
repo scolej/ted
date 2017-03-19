@@ -7,6 +7,9 @@ import Control.Concurrent.STM
 import Control.Concurrent.STM.TQueue
 import Control.Concurrent.STM.TQueue
 import Control.Monad
+import Data.Colour.RGBSpace
+import Data.Time.Clock
+import Data.Time.LocalTime
 import Debug.Trace
 import Debug.Trace
 import qualified Graphics.Rendering.FTGL as FTGL
@@ -18,11 +21,8 @@ import Ted.Editor.Common
 import Ted.Editor.Cursor
 import Ted.Editor.TextBuffer.String
 import Ted.Editor.View
-import Ted.Util
 import qualified Ted.Fancy.Colours as FC
-import Data.Colour.RGBSpace
-import Data.Time.LocalTime
-import Data.Time.Clock
+import Ted.Util
 
 fontPath = "/usr/share/fonts/TTF/UbuntuMono-Bold.ttf" :: String
 
@@ -65,22 +65,25 @@ startGlfwFrontEnd = do
   G.setWindowSizeCallback win (Just $ sizeCallback eventQueue fontWidth)
   let loop state =
         G.windowShouldClose win >>= \b -> unless b $ (mainLoop state) >>= loop
-  loop $ UIState { uiEventQueue = eventQueue
-                 , uiFont = font
-                 , uiFontWidth = fontWidth
-                 , uiWindow = win
-                 , uiLastEdit = now
-                 , uiLastWrite = now
-                 , uiEditor = initEditorState
-                                 { bufferLines = StringListBuffer testLines
-                                 , view =
-                                     View
-                                       1
-                                       1
-                                       (floor $ fi initWinHeight / fi fontHeight)
-                                       (floor $ fi initWinWidth / fontWidth)
-                                 }
-                 }
+  loop $
+    UIState
+    { uiEventQueue = eventQueue
+    , uiFont = font
+    , uiFontWidth = fontWidth
+    , uiWindow = win
+    , uiLastEdit = now
+    , uiLastWrite = now
+    , uiEditor =
+        initEditorState
+        { bufferLines = StringListBuffer testLines
+        , view =
+            View
+              1
+              1
+              (floor $ fi initWinHeight / fi fontHeight)
+              (floor $ fi initWinWidth / fontWidth)
+        }
+    }
   G.destroyWindow win
   G.terminate
   return ()
@@ -105,7 +108,8 @@ keyToDelta key a mods
   | a == G.KeyState'Released && key == G.Key'Right = motionEnds DirRight
   | a == G.KeyState'Released && key == G.Key'Up = motionEnds DirUp
   | a == G.KeyState'Released && key == G.Key'Down = motionEnds DirDown
-  | a == G.KeyState'Pressed && key == G.Key'D && G.modifierKeysControl mods = deleteWholeLine
+  | a == G.KeyState'Pressed && key == G.Key'D && G.modifierKeysControl mods =
+    deleteWholeLine
   | a == G.KeyState'Pressed && key == G.Key'End = gotoEndOfLine
   | a == G.KeyState'Pressed && key == G.Key'Home = gotoStartOfLine
   | a == G.KeyState'Pressed && key == G.Key'Enter = splitLineAtCursor
@@ -134,7 +138,12 @@ drawingSetup (width, height) fontWidth win colourBg = do
   let ratio = fromIntegral width / fromIntegral height
       charsHeight = fi height / fi fontHeight
   viewport $= (Position 0 0, Size (fromIntegral width) (fromIntegral height))
-  clearColor $= (Color4 (channelRed colourBg) (channelGreen colourBg) (channelBlue colourBg) 1 :: Color4 GLfloat)
+  clearColor $=
+    (Color4
+       (channelRed colourBg)
+       (channelGreen colourBg)
+       (channelBlue colourBg)
+       1 :: Color4 GLfloat)
   clear [ColorBuffer]
   matrixMode $= Projection
   loadIdentity
@@ -146,7 +155,10 @@ drawingSetup (width, height) fontWidth win colourBg = do
 
 mainLoop :: UIState -> IO (UIState)
 mainLoop ui = do
-  tod <- (fromRational . timeOfDayToDayFraction . localTimeOfDay . zonedTimeToLocalTime) <$> getZonedTime
+  tod <-
+    (fromRational .
+     timeOfDayToDayFraction . localTimeOfDay . zonedTimeToLocalTime) <$>
+    getZonedTime
   let colourFg = FC.slidingFg tod
   let colourBg = FC.slidingBg tod
   es' <- atomically $ processDeltas (uiEventQueue ui) (uiEditor ui)
@@ -164,15 +176,21 @@ mainLoop ui = do
       vertex $ Vertex3 0 0 (0 :: GLfloat)
       vertex $ Vertex3 0 (-1) (0 :: GLfloat)
   -- Draw text.
-  color $ Color3 (channelRed colourFg) (channelGreen colourFg) (channelBlue colourFg)      
+  color $
+    Color3 (channelRed colourFg) (channelGreen colourFg) (channelBlue colourFg)
   let StringListBuffer ls = bufferLines es'
       nlines = floor (fi height / fi fontHeight :: Float)
-  simpleDrawLines nlines (fi fontHeight / (uiFontWidth ui)) (uiFont ui) ls (view es')
+  simpleDrawLines
+    nlines
+    (fi fontHeight / (uiFontWidth ui))
+    (uiFont ui)
+    ls
+    (view es')
   G.swapBuffers (uiWindow ui)
   G.pollEvents
   threadDelay 30000
   atomically $ writeTQueue (uiEventQueue ui) (timePasses 0.03)
-  return $ ui { uiEditor = es' }
+  return $ ui {uiEditor = es'}
 
 -- | Read state changes off the queue, applying them in turn, until there are none left.
 processDeltas :: TQueue StateDelta -> EditorState -> STM EditorState

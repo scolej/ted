@@ -1,5 +1,6 @@
 module Ted.Editor where
 
+import Data.Time.Clock
 import Debug.Trace
 import Ted.Editor.Common
 import Ted.Editor.Cursor
@@ -14,6 +15,7 @@ type StateDelta = EditorState -> EditorState
 data EditorState = EditorState
   { filePath :: Maybe String
   , bufferLines :: StringListBuffer
+  , bufferLastEdit :: UTCTime
   , cursor :: Cursor
   , view :: View
   } deriving (Eq, Show)
@@ -38,15 +40,16 @@ backspace es =
   let Cursor l c = cursor es
       buffer = bufferLines es
   in if c == 1
-     then let buffer' = collapseLine l buffer
-          in (gotoEndOfLine $ updateCursor DirUp es) {bufferLines = buffer'}
-     else let buffer' = deleteChar l (c - 1) buffer
-          in updateCursor DirLeft $ es {bufferLines = buffer'}
+       then let buffer' = collapseLine l buffer
+            in (gotoEndOfLine $ updateCursor DirUp es) {bufferLines = buffer'}
+       else let buffer' = deleteChar l (c - 1) buffer
+            in updateCursor DirLeft $ es {bufferLines = buffer'}
 
 deleteWholeLine :: StateDelta
-deleteWholeLine es = es { bufferLines = buffer' }
-  where buffer' = deleteLine l (bufferLines es)
-        Cursor l _ = cursor es
+deleteWholeLine es = es {bufferLines = buffer'}
+  where
+    buffer' = deleteLine l (bufferLines es)
+    Cursor l _ = cursor es
 
 characterInput :: Char -> StateDelta
 characterInput c = insertCharacter c
@@ -59,22 +62,26 @@ insertCharacter char es = updateCursor DirRight $ es {bufferLines = newLines}
     newLines = insertChar line col char oldLines
 
 splitLineAtCursor :: StateDelta
-splitLineAtCursor es = gotoStartOfLine $ updateCursor DirDown $ es {bufferLines = newLines}
-  where newLines = splitLine l c (bufferLines es)
-        Cursor l c = cursor es
+splitLineAtCursor es =
+  gotoStartOfLine $ updateCursor DirDown $ es {bufferLines = newLines}
+  where
+    newLines = splitLine l c (bufferLines es)
+    Cursor l c = cursor es
 
 timePasses :: Float -> StateDelta
 timePasses t = id
 
 gotoEndOfLine :: StateDelta
-gotoEndOfLine es = es { cursor = Cursor l c' }
-  where Cursor l c = cursor es
-        StringListBuffer lines = bufferLines es
-        c' = 1 + (length $ lines !! (l - 1)) -- FIXME
+gotoEndOfLine es = es {cursor = Cursor l c'}
+  where
+    Cursor l c = cursor es
+    StringListBuffer lines = bufferLines es
+    c' = 1 + (length $ lines !! (l - 1)) -- FIXME
 
 gotoStartOfLine :: StateDelta
-gotoStartOfLine es = es { cursor = Cursor l 1 }
-  where Cursor l c = cursor es
+gotoStartOfLine es = es {cursor = Cursor l 1}
+  where
+    Cursor l c = cursor es
 
 updateCursor :: Direction -> StateDelta
 updateCursor d es =
