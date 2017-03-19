@@ -2,47 +2,53 @@ module Ted.Editor.Cursor where
 
 import Ted.Editor.Common
 
-data Cursor
-  -- | Simple, normal cursor.
-  = Cursor Line
-           Column
-  -- | Vertical slice cursor. Has a position and a height.
-  | CursorSlice Line
-                Column
-                Int
-  -- | Selection of whole lines. Has a start line and a count of selected lines.
-  -- Note that the count of lines might be negative to reflect lines above the cursor.
-  | CursorLines Line
-                Int
-  -- | Rectangular selection. Specifies the position of the top left and bottom right corners.
-  | CursorRectangle Line
-                    Column
-                    Line
-                    Column
-  -- | Normal range selection, everything in sequence, from position to position.
-  | CursorRange Line
-                Column
-                Line
-                Column
-  deriving (Eq, Show)
+-- | Simple, normal cursor.
+data PointCursor =
+  PointCursor LineCol
 
-cleanCursor :: Cursor -> Cursor
-cleanCursor (Cursor line col) = Cursor line' col'
-  where
-    line' =
-      if line < 1
-        then 1
-        else line
-    col' =
-      if col < 1
-        then 1
-        else col
+-- | Normal range selection, everything in sequence, from position to position.
+data RangeCursor =
+  RangeCursor LineCol
+              LineCol
 
-moveCursor :: Direction -> Cursor -> Cursor
-moveCursor d (Cursor line col) =
-  cleanCursor $
-  case d of
-    DirUp -> Cursor (line - 1) col
-    DirDown -> Cursor (line + 1) col
-    DirLeft -> Cursor line (col - 1)
-    DirRight -> Cursor line (col + 1)
+-- | Vertical slice cursor.
+data SliceCursor =
+  SliceCursor LineCol
+              Line
+
+-- | Selection of whole lines.
+-- The first line is the active end.
+data LinesCursor =
+  LinesCursor Line
+              Line
+
+-- | Rectangular selection.
+-- Specifies a rectangle with two corners.
+-- The first position is the active end.
+data RectangleCursor =
+  RectangleCursor LineCol
+                  LineCol
+
+-- | The sum of all cursors.
+data AnyCursor
+  = ACPoint PointCursor
+  | ACRange RangeCursor
+  | ACSlice SliceCursor
+  | ACLines LinesCursor
+  | ACRectangle RectangleCursor
+
+-- | Move a cursor in a direction.
+nudgeCursor :: Direction -> AnyCursor -> AnyCursor
+nudgeCursor = undefined
+
+-- | Change the shape of the cursor by moving the active end in a direction.
+warpCursor :: Direction -> AnyCursor -> AnyCursor
+warpCursor = undefined
+
+-- | Switch the active and inactive ends of the cursor (ie: exchange point and mark).
+toggleCursorHandle :: AnyCursor -> AnyCursor
+toggleCursorHandle = undefined
+
+-- | Take any cursor and reduce it back to a point.
+collapseCursor :: AnyCursor -> PointCursor
+collapseCursor = undefined
